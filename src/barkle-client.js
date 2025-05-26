@@ -344,6 +344,44 @@ class BarkleClient {
       throw error;
     }
   }
+
+  async markNotificationAsRead(notificationId) {
+    try {
+      logger.debug(`📖 Marking notification as read: ${notificationId}`);
+
+      // Try multiple possible endpoints for marking notifications as read
+      const endpoints = [
+        { endpoint: '/i/read-notification', payload: { notificationId } },
+        { endpoint: '/notifications/read', payload: { id: notificationId } },
+        { endpoint: '/i/read-all-notifications', payload: {} }
+      ];
+
+      for (const { endpoint, payload } of endpoints) {
+        try {
+          const response = await this.client.post(endpoint, payload);
+          logger.info(`✅ Successfully marked notification as read via ${endpoint}`);
+          return response.data;
+        } catch (error) {
+          logger.debug(`Failed to mark as read via ${endpoint}: ${error.response?.status}`);
+          continue;
+        }
+      }
+      
+      // If all specific endpoints fail, log but don't throw error
+      logger.warn(`Could not mark notification ${notificationId} as read - no working endpoint found`);
+      return null;
+
+    } catch (error) {
+      logger.error('❌ FAILED TO MARK NOTIFICATION AS READ:', {
+        notificationId,
+        error: error.message,
+        status: error.response?.status,
+        responseData: error.response?.data
+      });
+      // Don't throw error as this is not critical to bot functionality
+      return null;
+    }
+  }
 }
 
 export default new BarkleClient();

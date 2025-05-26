@@ -52,7 +52,7 @@ class Config {
 
   // Optional configuration
   get logLevel() {
-    return process.env.LOG_LEVEL || 'info';
+    return process.env.LOG_LEVEL || 'warn';
   }
 
   get reconnectInterval() {

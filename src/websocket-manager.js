@@ -98,7 +98,6 @@ class WebSocketManager {
 
   handleNotification(notification) {
     logger.info('Received notification:', notification.type);
-    this.emit('notification', notification);
 
     // Handle specific notification types
     switch (notification.type) {
@@ -112,7 +111,9 @@ class WebSocketManager {
         this.emit('groupInvite', notification);
         break;
       default:
+        // Only emit general notification for unhandled types
         logger.debug('Unhandled notification type:', notification.type);
+        this.emit('notification', notification);
     }
   }
 

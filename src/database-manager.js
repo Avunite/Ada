@@ -43,6 +43,21 @@ class DatabaseManager {
         logger.debug('Message limits table ready');
       }
     });
+
+    // Create processed notifications table to prevent duplicate processing
+    this.db.run(`CREATE TABLE IF NOT EXISTS processed_notifications (
+      id TEXT PRIMARY KEY,
+      notification_id TEXT UNIQUE,
+      notification_type TEXT,
+      user_id TEXT,
+      processed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`, (err) => {
+      if (err) {
+        logger.error('Error creating processed_notifications table:', err.message);
+      } else {
+        logger.debug('Processed notifications table ready');
+      }
+    });
   }
 
   async fetchMessagesFromDB(userId) {
@@ -166,6 +181,51 @@ class DatabaseManager {
       logger.error('Error getting conversation history:', error.message);
       return [];
     }
+  }
+
+  async isNotificationProcessed(notificationId) {
+    return new Promise((resolve, reject) => {
+      this.db.get('SELECT notification_id FROM processed_notifications WHERE notification_id = ?', 
+        notificationId, (err, row) => {
+        if (err) {
+          logger.error('Error checking notification processing status:', err.message);
+          reject(err);
+        } else {
+          resolve(!!row);
+        }
+      });
+    });
+  }
+
+  async markNotificationAsProcessed(notificationId, notificationType, userId) {
+    return new Promise((resolve, reject) => {
+      this.db.run('INSERT OR IGNORE INTO processed_notifications (notification_id, notification_type, user_id) VALUES (?, ?, ?)', 
+        [notificationId, notificationType, userId], (err) => {
+        if (err) {
+          logger.error('Error marking notification as processed:', err.message);
+          reject(err);
+        } else {
+          logger.debug(`Marked notification ${notificationId} as processed`);
+          resolve();
+        }
+      });
+    });
+  }
+
+  async cleanupOldNotifications(daysOld = 7) {
+    return new Promise((resolve, reject) => {
+      const cutoffDate = new Date(Date.now() - (daysOld * 24 * 60 * 60 * 1000)).toISOString();
+      this.db.run('DELETE FROM processed_notifications WHERE processed_at < ?', 
+        cutoffDate, function(err) {
+        if (err) {
+          logger.error('Error cleaning up old notifications:', err.message);
+          reject(err);
+        } else {
+          logger.info(`Cleaned up ${this.changes} old notification records`);
+          resolve(this.changes);
+        }
+      });
+    });
   }
 
   close() {
