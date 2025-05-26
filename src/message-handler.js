@@ -174,7 +174,10 @@ ${userContext.context}`;
 
       // Send the response
       logger.info(`🚀 Attempting to send message reply...`);
-      await barkleClient.sendMessage(finalResponse, note.id, note.channelId);
+      await barkleClient.sendMessage(finalResponse, { 
+        replyTo: note.id,
+        channelId: note.channelId 
+      });
 
       // Store bot's response in context
       this.addToConversationContext(note.id + '_response', {
@@ -195,8 +198,10 @@ ${userContext.context}`;
         logger.info('🔄 Attempting to send error response...');
         await barkleClient.sendMessage(
           "I'm sorry, I'm having trouble processing your message right now.",
-          note.id,
-          note.channelId
+          { 
+            replyTo: note.id,
+            channelId: note.channelId 
+          }
         );
         logger.info('✅ Error response sent successfully');
       } catch (sendError) {

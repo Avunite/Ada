@@ -1,8 +1,8 @@
 {
-  "messagesProcessed": 4,
-  "responsesGenerated": 4,
+  "messagesProcessed": 6,
+  "responsesGenerated": 5,
   "mentionsReceived": 0,
-  "directMessages": 4,
+  "directMessages": 6,
   "groupsJoined": 0,
   "groupsLeft": 0,
   "uptime": 1748279886587,
@@ -11,9 +11,18 @@
       "9358sgi0s7",
       {
         "username": "Aidan",
-        "messageCount": 4,
+        "messageCount": 5,
         "firstInteraction": 1748280248832,
-        "lastInteraction": 1748280627740
+        "lastInteraction": 1748280993924
+      }
+    ],
+    [
+      "9qg07ql6px",
+      {
+        "username": "Ada",
+        "messageCount": 1,
+        "firstInteraction": 1748280994588,
+        "lastInteraction": 1748280994588
       }
     ]
   ],
@@ -21,8 +30,8 @@
     [
       13,
       {
-        "messages": 4,
-        "responses": 4
+        "messages": 6,
+        "responses": 5
       }
     ]
   ]
