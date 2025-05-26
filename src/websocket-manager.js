@@ -12,6 +12,7 @@ class WebSocketManager {
     this.reconnectInterval = config.reconnectInterval;
     this.eventHandlers = new Map();
     this.subscriptions = new Set();
+    this.botUsername = config.botUsername || 'Ada'; // Store the bot username
   }
 
   connect() {
@@ -61,9 +62,26 @@ class WebSocketManager {
     });
   }
 
+  // Check if the bot is mentioned in a case-insensitive way
+  isBotMentioned(content) {
+    if (!content) return false;
+    
+    // Create a case-insensitive regex for @username
+    const mentionRegex = new RegExp(`@${this.botUsername}\\b`, 'i');
+    return mentionRegex.test(content);
+  }
+
   handleMessage(message) {
     // Log all message types to debug mention issues
     logger.debug('📨 Received WebSocket message:', message.type, message.body?.type || 'no body type');
+    
+    // Check for mentions in a case-insensitive way if there's content to check
+    if (message.body && message.body.body && message.body.body.text) {
+      const messageText = message.body.body.text;
+      if (this.isBotMentioned(messageText)) {
+        logger.info(`🎯 Case-insensitive mention detected in message: "${messageText}"`);
+      }
+    }
     
     // Handle different message types
     switch (message.type) {
@@ -105,6 +123,20 @@ class WebSocketManager {
   handleChannelMessage(body) {
     logger.debug('Channel message received:', body.type, body.id || 'no id');
     
+    // Check for case-insensitive mentions in timeline notes
+    if (body.type === 'note' && body.body && body.body.text) {
+      const noteText = body.body.text;
+      if (this.isBotMentioned(noteText)) {
+        logger.info(`🎯 Case-insensitive mention detected in note: "${noteText}"`);
+        // Create a synthetic mention notification
+        this.emit('mention', {
+          type: 'mention',
+          note: body.body,
+          caseSensitiveOverride: true
+        });
+      }
+    }
+    
     // Handle messaging channel messages
     if (body.type === 'messagingMessage') {
       this.emit('messagingMessage', body.body);
@@ -133,6 +165,17 @@ class WebSocketManager {
   handleNotification(notification) {
     logger.info('🔔 Received notification:', notification.type);
     logger.info('📋 Full notification structure:', JSON.stringify(notification, null, 2));
+
+    // Check if this is a mention but wasn't caught due to case sensitivity
+    if (notification.type !== 'mention' && 
+        notification.note && 
+        notification.note.text && 
+        this.isBotMentioned(notification.note.text)) {
+      
+      logger.info('📌 Converting to mention due to case-insensitive match');
+      notification.type = 'mention';
+      notification.caseSensitiveOverride = true;
+    }
 
     // Handle specific notification types
     switch (notification.type) {
