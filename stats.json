@@ -1,11 +1,29 @@
 {
-  "messagesProcessed": 0,
-  "responsesGenerated": 0,
+  "messagesProcessed": 4,
+  "responsesGenerated": 4,
   "mentionsReceived": 0,
-  "directMessages": 0,
+  "directMessages": 4,
   "groupsJoined": 0,
   "groupsLeft": 0,
   "uptime": 1748279886587,
-  "userInteractions": [],
-  "hourlyStats": []
+  "userInteractions": [
+    [
+      "9358sgi0s7",
+      {
+        "username": "Aidan",
+        "messageCount": 4,
+        "firstInteraction": 1748280248832,
+        "lastInteraction": 1748280627740
+      }
+    ]
+  ],
+  "hourlyStats": [
+    [
+      13,
+      {
+        "messages": 4,
+        "responses": 4
+      }
+    ]
+  ]
 }

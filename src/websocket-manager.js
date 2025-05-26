@@ -35,7 +35,9 @@ class WebSocketManager {
       
       // Connect to required channels
       this.connectToMainTimeline();
+      this.connectToGlobalTimeline();
       this.connectToNotifications();
+      this.connectToMentions();
     });
 
     this.ws.on('message', (data) => {
@@ -60,7 +62,10 @@ class WebSocketManager {
   }
 
   handleMessage(message) {
-    logger.debug('Received WebSocket message:', message);
+    // Only log important message types to reduce noise
+    if (message.type === 'notification' || message.type === 'noteUpdated') {
+      logger.debug('Received WebSocket message:', message.type);
+    }
 
     // Handle different message types
     switch (message.type) {
@@ -115,11 +120,22 @@ class WebSocketManager {
     this.send({
       type: 'connect',
       body: {
-        channel: 'main',
+        channel: 'homeTimeline',
         id: uuidv4()
       }
     });
-    logger.debug('Connected to main timeline');
+    logger.debug('Connected to home timeline');
+  }
+
+  connectToGlobalTimeline() {
+    this.send({
+      type: 'connect',
+      body: {
+        channel: 'globalTimeline',
+        id: uuidv4()
+      }
+    });
+    logger.debug('Connected to global timeline');
   }
 
   connectToNotifications() {
@@ -130,7 +146,18 @@ class WebSocketManager {
         id: uuidv4()
       }
     });
-    logger.debug('Connected to notifications');
+    logger.debug('Connected to main notifications');
+  }
+
+  connectToMentions() {
+    this.send({
+      type: 'connect',
+      body: {
+        channel: 'mentions',
+        id: uuidv4()
+      }
+    });
+    logger.debug('Connected to mentions channel');
   }
 
   send(data) {

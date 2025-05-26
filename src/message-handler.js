@@ -88,6 +88,9 @@ class MessageHandler {
 
   async processMessage(note, isDM, isMention) {
     try {
+      logger.info(`🔄 PROCESSING MESSAGE: ${isDM ? 'DM' : 'MENTION'} from ${note.user?.username || 'unknown'}`);
+      logger.debug(`📝 Original note:`, note);
+      
       let messageText = note.text || '';
       
       // Remove mention from the text if it's a mention
@@ -95,19 +98,25 @@ class MessageHandler {
         messageText = this.removeMentionFromText(messageText);
       }
 
+      logger.debug(`📝 Processed message text: "${messageText}"`);
+
       // Check for special commands
       if (await this.handleSpecialCommands(messageText, note)) {
+        logger.info('✅ Handled as special command');
         return;
       }
 
       // Get user context
+      logger.debug('🔍 Fetching user context...');
       const userContext = await userContextManager.getUserContext(note.userId);
-      logger.debug(`Processing message from ${userContext.username}`);
+      logger.info(`👤 User context loaded for ${userContext.username}`);
 
       // Get conversation context if this is a reply
       let context = [];
       if (note.replyId) {
+        logger.debug('🔗 Fetching conversation context...');
         context = await this.getConversationContext(note.replyId);
+        logger.debug(`📚 Loaded ${context.length} context messages`);
       }
 
       // Store the user's message in context
@@ -124,6 +133,7 @@ User Context:
 ${userContext.context}`;
 
       // Generate response using AI with tools
+      logger.info('🤖 Generating AI response...');
       const responseData = await pluginManager.executeHook('beforeResponse', {
         message: messageText,
         note,
@@ -135,9 +145,11 @@ ${userContext.context}`;
       let response;
       if (responseData.autoResponse && responseData.triggered) {
         // Use auto-response if triggered by plugin
+        logger.info('🔄 Using plugin auto-response');
         response = responseData.autoResponse;
       } else {
         // Generate AI response with agent mode (tools)
+        logger.info('🛠️ Generating agent response with tools...');
         response = await this.generateAgentResponse(
           messageText,
           context,
@@ -145,6 +157,8 @@ ${userContext.context}`;
           { note, userContext }
         );
       }
+
+      logger.info(`💬 Generated response: "${response.substring(0, 100)}${response.length > 100 ? '...' : ''}"`);
 
       // Allow plugins to modify the response
       const finalResponseData = await pluginManager.executeHook('afterResponse', {
@@ -156,8 +170,10 @@ ${userContext.context}`;
       });
 
       const finalResponse = finalResponseData.response || response;
+      logger.info(`📤 Final response to send: "${finalResponse.substring(0, 100)}${finalResponse.length > 100 ? '...' : ''}"`);
 
       // Send the response
+      logger.info(`🚀 Attempting to send message reply...`);
       await barkleClient.sendMessage(finalResponse, note.id, note.channelId);
 
       // Store bot's response in context
@@ -166,19 +182,25 @@ ${userContext.context}`;
         content: finalResponse
       });
 
-      logger.info(`Responded to ${isDM ? 'DM' : 'mention'} from ${userContext.username}`);
+      logger.info(`✅ Successfully responded to ${isDM ? 'DM' : 'mention'} from ${userContext.username}`);
     } catch (error) {
-      logger.error('Failed to process message:', error.message);
+      logger.error('❌ FAILED TO PROCESS MESSAGE:', {
+        error: error.message,
+        stack: error.stack,
+        note: { id: note.id, userId: note.userId, text: note.text }
+      });
       
       // Send error response
       try {
+        logger.info('🔄 Attempting to send error response...');
         await barkleClient.sendMessage(
           "I'm sorry, I'm having trouble processing your message right now.",
           note.id,
           note.channelId
         );
+        logger.info('✅ Error response sent successfully');
       } catch (sendError) {
-        logger.error('Failed to send error response:', sendError.message);
+        logger.error('❌ Failed to send error response:', sendError.message);
       }
     }
   }

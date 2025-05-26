@@ -13,37 +13,80 @@ class BarkleClient {
       timeout: 10000
     });
 
-    this.client.interceptors.response.use(
-      response => response,
+    this.client.interceptors.request.use(
+      config => {
+        logger.debug(`🔵 API REQUEST: ${config.method?.toUpperCase()} ${config.url}`);
+        logger.debug(`🔵 Headers:`, config.headers);
+        logger.debug(`🔵 Data:`, config.data);
+        return config;
+      },
       error => {
-        logger.error('Barkle API error:', error.response?.data || error.message);
+        logger.error('🔴 Request interceptor error:', error);
+        return Promise.reject(error);
+      }
+    );
+
+    this.client.interceptors.response.use(
+      response => {
+        logger.debug(`🟢 API RESPONSE: ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`);
+        logger.debug(`🟢 Response data:`, response.data);
+        return response;
+      },
+      error => {
+        logger.error(`🔴 API ERROR: ${error.response?.status} ${error.config?.method?.toUpperCase()} ${error.config?.url}`);
+        logger.error('🔴 Error response:', error.response?.data);
+        logger.error('🔴 Error message:', error.message);
         throw error;
       }
     );
   }
 
-  async sendMessage(text, replyTo = null, channelId = null) {
+  async sendMessage(text, options = {}) {
     try {
       const payload = {
         text: text
       };
 
-      if (replyTo) {
-        payload.replyId = replyTo;
+      // Handle options object
+      if (options.replyTo) {
+        payload.replyId = options.replyTo;
       }
 
-      if (channelId) {
-        payload.channelId = channelId;
+      if (options.channelId) {
+        payload.channelId = options.channelId;
       }
 
-      logger.debug('Sending message to Barkle:', payload);
+      if (options.visibility) {
+        payload.visibility = options.visibility;
+      }
 
-      const response = await this.client.post('/notes', payload);
-      logger.debug('Message sent successfully:', response.data);
+      if (options.visibleUserIds) {
+        payload.visibleUserIds = options.visibleUserIds;
+      }
+
+      logger.info('📤 SENDING MESSAGE:', {
+        text: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
+        options,
+        fullPayload: payload
+      });
+
+      const response = await this.client.post('/notes/create', payload);
       
-      return response.data;
+      logger.info('✅ MESSAGE SENT SUCCESSFULLY:', {
+        noteId: response.data?.createdNote?.id,
+        status: response.status,
+        responseData: response.data
+      });
+      
+      return response.data.createdNote;
     } catch (error) {
-      logger.error('Failed to send message:', error.message);
+      logger.error('❌ FAILED TO SEND MESSAGE:', {
+        error: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        responseData: error.response?.data,
+        originalPayload: { text, options }
+      });
       throw error;
     }
   }
@@ -90,22 +133,22 @@ class BarkleClient {
 
   async joinGroup(groupId) {
     try {
-      const response = await this.client.post(`/channels/${groupId}/join`);
-      logger.info(`Successfully joined group: ${groupId}`);
+      const response = await this.client.post('/messaging/groups/join', { groupId });
+      logger.info(`Successfully joined DM group: ${groupId}`);
       return response.data;
     } catch (error) {
-      logger.error('Failed to join group:', error.message);
+      logger.error('Failed to join DM group:', error.message);
       throw error;
     }
   }
 
   async leaveGroup(groupId) {
     try {
-      const response = await this.client.post(`/channels/${groupId}/leave`);
-      logger.info(`Successfully left group: ${groupId}`);
+      const response = await this.client.post('/messaging/groups/leave', { groupId });
+      logger.info(`Successfully left DM group: ${groupId}`);
       return response.data;
     } catch (error) {
-      logger.error('Failed to leave group:', error.message);
+      logger.error('Failed to leave DM group:', error.message);
       throw error;
     }
   }
@@ -201,13 +244,12 @@ class BarkleClient {
     try {
       const payload = {
         text: text,
-        visibility: 'specified',
-        visibleUserIds: [userId]
+        userId: userId
       };
 
       logger.debug('Sending direct message:', payload);
 
-      const response = await this.client.post('/notes', payload);
+      const response = await this.client.post('/messaging/messages/create', payload);
       logger.debug('Direct message sent successfully:', response.data);
       
       return response.data;
@@ -249,6 +291,33 @@ class BarkleClient {
       };
     } catch (error) {
       logger.error('Failed to get user profile:', error.message);
+      throw error;
+    }
+  }
+
+  async updateNotificationSettings() {
+    try {
+      // Unmute important notifications (keep follow requests and app notifications muted)
+      const payload = {
+        mutingNotificationTypes: ['follow', 'pollVote', 'pollEnded', 'receiveFollowRequest', 'followRequestAccepted', 'groupInvited', 'app']
+      };
+
+      logger.info('📱 UPDATING NOTIFICATION SETTINGS to unmute mentions and replies');
+
+      const response = await this.client.post('/i/update', payload);
+      
+      logger.info('✅ NOTIFICATION SETTINGS UPDATED:', {
+        status: response.status,
+        newMutingTypes: payload.mutingNotificationTypes
+      });
+      
+      return response.data;
+    } catch (error) {
+      logger.error('❌ FAILED TO UPDATE NOTIFICATION SETTINGS:', {
+        error: error.message,
+        status: error.response?.status,
+        responseData: error.response?.data
+      });
       throw error;
     }
   }
