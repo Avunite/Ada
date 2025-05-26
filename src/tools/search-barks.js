@@ -31,6 +31,11 @@ export default class SearchBarksTool extends BaseTool {
         description: 'Filter results by specific user ID',
         required: false
       },
+      username: {
+        type: 'string',
+        description: 'Filter results by username (without @ symbol) - will be converted to user ID automatically',
+        required: false
+      },
       channelId: {
         type: 'string',
         description: 'Filter results by specific channel/group ID',
@@ -45,7 +50,20 @@ export default class SearchBarksTool extends BaseTool {
       throw new Error(`Invalid parameters: ${validation.errors.join(', ')}`);
     }
 
-    const { query, limit = 10, offset = 0, userId, channelId } = params;
+    // Resolve username to userId if needed for filtering
+    let resolvedParams = params;
+    if (params.username && !params.userId) {
+      try {
+        resolvedParams = await this.resolveUsername(params);
+      } catch (error) {
+        // If username resolution fails, continue without user filtering
+        this.warn(`Could not resolve username @${params.username}, searching without user filter:`, error.message);
+        resolvedParams = { ...params };
+        delete resolvedParams.username; // Remove username since we couldn't resolve it
+      }
+    }
+
+    const { query, limit = 10, offset = 0, userId, channelId } = resolvedParams;
 
     try {
       this.debug(`Searching for: "${query}" with limit: ${limit}`);

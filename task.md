@@ -122,7 +122,7 @@ The Ada Bot is now **FULLY IMPLEMENTED** with all core features and advanced cap
 ### 🤖 Agent Mode Features Complete:
 - ✅ **React-style Reasoning**: AI decides when and how to use tools
 - ✅ **Function Calling**: OpenAI-compatible tool integration
-- ✅ **6 Agent Tools**: search_barks, follow, unfollow, block, unblock, dm
+- ✅ **7 Agent Tools**: search_barks, lookup_user, follow, unfollow, block, unblock, dm
 - ✅ **Tool Framework**: Robust execution and error handling
 - ✅ **Result Formatting**: Clean tool output for AI responses
 
@@ -140,12 +140,15 @@ The Ada Bot is now **FULLY IMPLEMENTED** with all core features and advanced cap
 4. **Base Plugin**: Foundation class for custom plugins
 
 ### 🛠️ Agent Tools Available:
-1. **search_barks**: Search posts with keywords, filters, pagination
-2. **follow**: Follow users with confirmation
-3. **unfollow**: Unfollow users with confirmation
-4. **block**: Block users when necessary
-5. **unblock**: Unblock users when needed
-6. **dm**: Send direct messages to users
+1. **search_barks**: Search posts with keywords, filters, pagination (supports username parameter)
+2. **lookup_user**: Look up user information by username or user ID 
+3. **follow**: Follow users with confirmation (supports username parameter)
+4. **unfollow**: Unfollow users with confirmation (supports username parameter) 
+5. **block**: Block users when necessary (supports username parameter)
+6. **unblock**: Unblock users when needed (supports username parameter)
+7. **dm**: Send direct messages to users (supports username parameter)
+
+**Enhanced Username Support**: All user-related tools now accept either `username` or `userId` parameters. When a username is provided, it's automatically resolved to a user ID, making it much easier for the AI to work with usernames directly without needing separate lookup steps.
 
 ### 📁 Project Structure:
 ```
@@ -167,8 +170,9 @@ The Ada Bot is now **FULLY IMPLEMENTED** with all core features and advanced cap
 │   │   ├── moderation.js     # Moderation plugin
 │   │   └── statistics.js     # Statistics plugin
 │   └── tools/                # Agent tools directory
-│       ├── base-tool.js      # Base tool class
+│       ├── base-tool.js      # Base tool class with username resolution
 │       ├── search-barks.js   # Search functionality
+│       ├── lookup-user.js    # User lookup tool
 │       ├── follow.js         # Follow tool
 │       ├── unfollow.js       # Unfollow tool
 │       ├── block.js          # Block tool

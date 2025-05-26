@@ -14,18 +14,31 @@ export default class FollowTool extends BaseTool {
       userId: {
         type: 'string',
         description: 'User ID to follow',
-        required: true
+        required: false
+      },
+      username: {
+        type: 'string',
+        description: 'Username to follow (without @ symbol) - will be converted to user ID automatically',
+        required: false
       }
     };
   }
 
   async execute(params, context) {
-    const validation = this.validateParams(params);
+    // Must provide either username or userId
+    if (!params.username && !params.userId) {
+      throw new Error('Must provide either username or userId');
+    }
+
+    // Resolve username to userId if needed
+    const resolvedParams = await this.resolveUsername(params);
+    
+    const validation = this.validateParams(resolvedParams);
     if (!validation.valid) {
       throw new Error(`Invalid parameters: ${validation.errors.join(', ')}`);
     }
 
-    const { userId } = params;
+    const { userId } = resolvedParams;
 
     try {
       this.debug(`Following user: ${userId}`);

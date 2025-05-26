@@ -74,6 +74,7 @@ class UserContextManager {
       profile.isLocked ? 'This user has a private account.' : null,
       profile.isVerified ? 'This user is verified.' : null,
       profile.isStaff ? 'This user is an Avunite staff member.' : null,
+      profile.id ? `User ID: ${profile.id}` : null,
     ].filter(Boolean);
 
     return {

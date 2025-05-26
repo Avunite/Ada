@@ -14,7 +14,12 @@ export default class SendDMTool extends BaseTool {
       userId: {
         type: 'string',
         description: 'User ID to send DM to',
-        required: true
+        required: false
+      },
+      username: {
+        type: 'string',
+        description: 'Username to send DM to (without @ symbol) - will be converted to user ID automatically',
+        required: false
       },
       message: {
         type: 'string',
@@ -25,12 +30,20 @@ export default class SendDMTool extends BaseTool {
   }
 
   async execute(params, context) {
-    const validation = this.validateParams(params);
+    // Must provide either username or userId
+    if (!params.username && !params.userId) {
+      throw new Error('Must provide either username or userId');
+    }
+
+    // Resolve username to userId if needed
+    const resolvedParams = await this.resolveUsername(params);
+    
+    const validation = this.validateParams(resolvedParams);
     if (!validation.valid) {
       throw new Error(`Invalid parameters: ${validation.errors.join(', ')}`);
     }
 
-    const { userId, message } = params;
+    const { userId, message } = resolvedParams;
 
     try {
       this.debug(`Sending DM to user: ${userId}`);

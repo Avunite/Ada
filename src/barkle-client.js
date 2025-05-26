@@ -93,7 +93,7 @@ class BarkleClient {
 
   async getNote(noteId) {
     try {
-      const response = await this.client.post(`/notes/show`, { noteId });
+      const response = await this.client.post(`/notes/show`, { noteId: noteId });
       return response.data;
     } catch (error) {
       logger.error('Failed to get note:', error.message);
@@ -133,7 +133,7 @@ class BarkleClient {
 
   async joinGroup(invitationId) {
     try {
-      const response = await this.client.post('/users/groups/invitations/accept', { invitationId });
+      const response = await this.client.post('/users/groups/invitations/accept', { invitationId: invitationId });
       logger.info(`Successfully joined DM group: ${invitationId}`);
       return response.data;
     } catch (error) {
@@ -144,7 +144,7 @@ class BarkleClient {
 
   async leaveGroup(groupId) {
     try {
-      const response = await this.client.post('/users/groups/leave', { groupId });
+      const response = await this.client.post('/users/groups/leave', { groupId: groupId });
       logger.info(`Successfully left DM group: ${groupId}`);
       return response.data;
     } catch (error) {
@@ -155,7 +155,7 @@ class BarkleClient {
 
   async getUserInfo(userId) {
     try {
-      const response = await this.client.post(`/users/show`, { userId });
+      const response = await this.client.post(`/users/show`, { userId: userId });
       return response.data;
     } catch (error) {
       logger.error('Failed to get user info:', error.message);
@@ -198,7 +198,7 @@ class BarkleClient {
 
   async followUser(userId) {
     try {
-      const response = await this.client.post('/following/create', { userId });
+      const response = await this.client.post('/following/create', { userId: userId });
       logger.info(`Successfully followed user: ${userId}`);
       return response.data;
     } catch (error) {
@@ -209,7 +209,7 @@ class BarkleClient {
 
   async unfollowUser(userId) {
     try {
-      const response = await this.client.post('/following/delete', { userId });
+      const response = await this.client.post('/following/delete', { userId: userId });
       logger.info(`Successfully unfollowed user: ${userId}`);
       return response.data;
     } catch (error) {
@@ -220,7 +220,7 @@ class BarkleClient {
 
   async blockUser(userId) {
     try {
-      const response = await this.client.post('/blocking/create', { userId });
+      const response = await this.client.post('/blocking/create', { userId: userId });
       logger.info(`Successfully blocked user: ${userId}`);
       return response.data;
     } catch (error) {
@@ -231,7 +231,7 @@ class BarkleClient {
 
   async unblockUser(userId) {
     try {
-      const response = await this.client.post('/blocking/delete', { userId });
+      const response = await this.client.post('/blocking/delete', { userId: userId });
       logger.info(`Successfully unblocked user: ${userId}`);
       return response.data;
     } catch (error) {
@@ -261,7 +261,7 @@ class BarkleClient {
 
   async getUserProfile(userId) {
     try {
-      const response = await this.client.post(`/users/show`, { userId });
+      const response = await this.client.post(`/users/show`, { userId: userId });
       const user = response.data;
       
       // Calculate account age
@@ -297,7 +297,7 @@ class BarkleClient {
 
   async getMessagingHistory(limit = 20) {
     try {
-      const response = await this.client.post('/messaging/history', { limit });
+      const response = await this.client.post('/messaging/history', { limit: limit });
       return response.data;
     } catch (error) {
       logger.error('Failed to get messaging history:', error.message);
@@ -352,8 +352,8 @@ class BarkleClient {
 
       // Try multiple possible endpoints for marking notifications as read
       const endpoints = [
-        { endpoint: '/i/read-notification', payload: { notificationId } },
-        { endpoint: '/notifications/read', payload: { notificationId } },
+        { endpoint: '/i/read-notification', payload: { notificationId: notificationId } },
+        { endpoint: '/notifications/read', payload: { notificationId: notificationId } },
         { endpoint: '/i/read-all-notifications', payload: {} }
       ];
 

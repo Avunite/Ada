@@ -5,6 +5,7 @@ import UnfollowTool from './tools/unfollow.js';
 import BlockTool from './tools/block.js';
 import UnblockTool from './tools/unblock.js';
 import DMTool from './tools/dm.js';
+import LookupUserTool from './tools/lookup-user.js';
 
 /**
  * Tool Manager
@@ -19,6 +20,7 @@ class ToolManager {
   initialize() {
     // Register all available tools
     this.registerTool(new SearchBarksTool());
+    this.registerTool(new LookupUserTool());
     this.registerTool(new FollowTool());
     this.registerTool(new UnfollowTool());
     this.registerTool(new BlockTool());
