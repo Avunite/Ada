@@ -71,7 +71,9 @@ class UserContextManager {
       profile.website ? `Website: ${profile.website}` : null,
       `Posts: ${profile.notesCount}, Followers: ${profile.followersCount}, Following: ${profile.followingCount}`,
       profile.isBot ? 'This user is a bot.' : null,
-      profile.isLocked ? 'This user has a private account.' : null
+      profile.isLocked ? 'This user has a private account.' : null,
+      profile.isVerified ? 'This user is verified.' : null,
+      profile.isStaff ? 'This user is an Avunite staff member.' : null,
     ].filter(Boolean);
 
     return {
