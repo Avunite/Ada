@@ -131,10 +131,10 @@ class BarkleClient {
     }
   }
 
-  async joinGroup(groupId) {
+  async joinGroup(invitationId) {
     try {
-      const response = await this.client.post('/messaging/groups/join', { groupId });
-      logger.info(`Successfully joined DM group: ${groupId}`);
+      const response = await this.client.post('/users/groups/invitations/accept', { invitationId });
+      logger.info(`Successfully joined DM group: ${invitationId}`);
       return response.data;
     } catch (error) {
       logger.error('Failed to join DM group:', error.message);
@@ -144,7 +144,7 @@ class BarkleClient {
 
   async leaveGroup(groupId) {
     try {
-      const response = await this.client.post('/messaging/groups/leave', { groupId });
+      const response = await this.client.post('/users/groups/leave', { groupId });
       logger.info(`Successfully left DM group: ${groupId}`);
       return response.data;
     } catch (error) {
@@ -170,7 +170,7 @@ class BarkleClient {
       
       for (const endpoint of endpoints) {
         try {
-          const response = await this.client.post(endpoint);
+          const response = await this.client.post(endpoint, {});
           logger.debug(`Successfully got user info from: ${endpoint}`);
           return response.data;
         } catch (error) {
@@ -353,7 +353,7 @@ class BarkleClient {
       // Try multiple possible endpoints for marking notifications as read
       const endpoints = [
         { endpoint: '/i/read-notification', payload: { notificationId } },
-        { endpoint: '/notifications/read', payload: { id: notificationId } },
+        { endpoint: '/notifications/read', payload: { notificationId } },
         { endpoint: '/i/read-all-notifications', payload: {} }
       ];
 
