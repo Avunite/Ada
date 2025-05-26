@@ -321,11 +321,12 @@ class BarkleClient {
   async updateNotificationSettings() {
     try {
       // Unmute important notifications (keep follow requests and app notifications muted)
+      // Note: Removed 'groupInvited' from muted types so bot can respond to group invitations
       const payload = {
-        mutingNotificationTypes: ['follow', 'pollVote', 'pollEnded', 'receiveFollowRequest', 'followRequestAccepted', 'groupInvited', 'app']
+        mutingNotificationTypes: ['follow', 'pollVote', 'pollEnded', 'receiveFollowRequest', 'followRequestAccepted', 'app']
       };
 
-      logger.info('📱 UPDATING NOTIFICATION SETTINGS to unmute mentions and replies');
+      logger.info('📱 UPDATING NOTIFICATION SETTINGS to unmute mentions, replies, and group invitations');
 
       const response = await this.client.post('/i/update', payload);
       

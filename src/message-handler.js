@@ -78,22 +78,42 @@ class MessageHandler {
   }
 
   async handleGroupInvite(notification) {
-    logger.info('Received group invitation:', notification);
+    logger.info('Received group invitation:', JSON.stringify(notification, null, 2));
     
     try {
+      // Check different possible structures for the notification
+      let groupId = null;
+      
       if (notification.invite && notification.invite.group) {
-        const groupId = notification.invite.group.id;
+        groupId = notification.invite.group.id;
+        logger.info('Found group ID in notification.invite.group.id:', groupId);
+      } else if (notification.group) {
+        groupId = notification.group.id;
+        logger.info('Found group ID in notification.group.id:', groupId);
+      } else if (notification.groupId) {
+        groupId = notification.groupId;
+        logger.info('Found group ID in notification.groupId:', groupId);
+      } else {
+        logger.error('Could not find group ID in notification structure:', Object.keys(notification));
+        return;
+      }
+      
+      if (groupId) {
+        logger.info('Attempting to join group:', groupId);
         await barkleClient.joinGroup(groupId);
+        logger.info('Successfully joined group, sending greeting message...');
         
         // Send a greeting message to the group
         await barkleClient.sendMessage(
           `Hello everyone! I'm ${config.botName}, thanks for inviting me to the group. I'm here to help and chat! 🤖`,
-          null,
-          groupId
+          { channelId: groupId }
         );
+        
+        logger.info('Successfully handled group invitation and sent greeting message');
       }
     } catch (error) {
       logger.error('Failed to handle group invitation:', error.message);
+      logger.error('Error stack:', error.stack);
     }
   }
 
@@ -360,7 +380,10 @@ ${userContext.context}`;
 
 I'm powered by AI and here to assist! 🤖`;
 
-      await barkleClient.sendMessage(helpMessage, note.id, note.channelId);
+      await barkleClient.sendMessage(helpMessage, {
+        replyTo: note.id,
+        channelId: note.channelId
+      });
       return true;
     }
 
