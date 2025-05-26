@@ -33,9 +33,8 @@ class WebSocketManager {
       this.isConnected = true;
       this.reconnectAttempts = 0;
       
-      // Connect to required channels
-      this.connectToMainTimeline();
-      this.connectToGlobalTimeline();
+      // Connect to required channels - ONLY notifications and messaging
+      // Timeline connections removed to prevent responding to all posts
       this.connectToNotifications();
       this.connectToMentions();
       this.connectToMessaging();
@@ -87,17 +86,17 @@ class WebSocketManager {
   }
 
   handleChannelMessage(body) {
-    // This handles timeline messages
-    if (body.type === 'note') {
-      this.emit('note', body.body);
-    }
     // Handle messaging channel messages
-    else if (body.type === 'messagingMessage') {
+    if (body.type === 'messagingMessage') {
       this.emit('messagingMessage', body.body);
     }
     // Handle direct messages
     else if (body.type === 'message') {
       this.emit('directMessage', body.body);
+    }
+    // Note: Removed timeline note handling to prevent responding to all posts
+    else if (body.type === 'note') {
+      logger.debug('Ignoring timeline note - bot only responds to mentions and DMs');
     }
   }
 
@@ -126,6 +125,8 @@ class WebSocketManager {
     }
   }
 
+  // Note: Timeline connections disabled to prevent bot from responding to all posts
+  // Bot now only responds to mentions (via notifications) and direct messages
   connectToMainTimeline() {
     this.send({
       type: 'connect',

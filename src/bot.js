@@ -52,34 +52,8 @@ class AdaBot {
   setupEventHandlers() {
     logger.info('Setting up event handlers...');
 
-    // Handle incoming notes (messages)
-    websocketManager.on('note', async (note) => {
-      try {
-        // Execute before process hooks
-        const processData = await pluginManager.executeHook('beforeProcess', {
-          note,
-          timestamp: Date.now()
-        });
-
-        // Check if processing was blocked by plugins
-        if (processData.blocked) {
-          logger.debug(`Message processing blocked: ${processData.reason}`);
-          return;
-        }
-
-        await messageHandler.handleNote(note);
-
-        // Execute after process hooks
-        await pluginManager.executeHook('afterProcess', {
-          note,
-          processed: true,
-          timestamp: Date.now()
-        });
-
-      } catch (error) {
-        logger.error('Error handling note:', error.message);
-      }
-    });
+    // Note: Removed timeline note handler to prevent responding to all posts
+    // Bot now only responds to mentions (via notifications) and direct messages
 
     // Handle mentions
     websocketManager.on('mention', async (notification) => {

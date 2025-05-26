@@ -40,13 +40,15 @@ class MessageHandler {
     }
   }
 
+  // Note: This method is no longer used for timeline processing
+  // Bot now only responds via handleMention, handleReply, and handleDirectMessage
   async handleNote(note) {
     // Skip our own messages
     if (note.userId === this.botUserId) {
       return;
     }
 
-    logger.debug('Processing note:', note);
+    logger.debug('Processing note (legacy method):', note);
 
     // Check if this is a direct message or mention
     const isDM = this.isDirectMessage(note);
