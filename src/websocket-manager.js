@@ -33,11 +33,10 @@ class WebSocketManager {
       this.isConnected = true;
       this.reconnectAttempts = 0;
       
-      // Connect to required channels - Including home timeline for mentions to work
-      // but we'll filter mentions in the handler
+      // Connect to required channels
+      // Main timeline needed for mentions to work properly
       this.connectToMainTimeline();
       this.connectToNotifications();
-      this.connectToMentions();
       this.connectToMessaging();
     });
 
@@ -64,23 +63,42 @@ class WebSocketManager {
 
   handleMessage(message) {
     // Log all message types to debug mention issues
-    logger.debug('Received WebSocket message:', message.type, message.body?.type || 'no body type');
-
+    logger.debug('📨 Received WebSocket message:', message.type, message.body?.type || 'no body type');
+    
     // Handle different message types
     switch (message.type) {
       case 'channel':
         if (message.body) {
-          this.handleChannelMessage(message.body);
+          // Check for notification messages according to docs
+          if (message.body.type === 'notification') {
+            logger.info('🔔 NOTIFICATION MESSAGE RECEIVED via channel:', JSON.stringify(message.body, null, 2));
+            const notification = message.body.body;
+            if (notification && notification.type === 'mention') {
+              logger.info('🎯 MENTION NOTIFICATION FOUND! Processing...');
+              this.emit('mention', notification);
+            } else if (notification && notification.type === 'reply') {
+              logger.info('💬 REPLY NOTIFICATION FOUND! Processing...');
+              this.emit('reply', notification);
+            } else if (notification) {
+              logger.info('📢 Other notification type in channel:', notification.type);
+              this.emit('notification', notification);
+            }
+          } else {
+            // Handle other channel message types
+            this.handleChannelMessage(message.body);
+          }
         }
         break;
       case 'noteUpdated':
         this.handleNoteUpdate(message.body);
         break;
       case 'notification':
+        // Direct notification messages (legacy path)
+        logger.info('🔔 DIRECT NOTIFICATION MESSAGE RECEIVED:', JSON.stringify(message, null, 2));
         this.handleNotification(message.body);
         break;
       default:
-        logger.debug('Unhandled message type:', message.type);
+        logger.debug('❓ Unhandled message type:', message.type);
     }
   }
 
@@ -95,12 +113,16 @@ class WebSocketManager {
     else if (body.type === 'message') {
       this.emit('directMessage', body.body);
     }
-    // Check if mentions are coming through timeline notes
+    // Handle timeline notes
     else if (body.type === 'note') {
       logger.debug('Timeline note received - checking if it mentions the bot');
       // We might need to handle mentions that come through timeline
       // Let's emit them and let the bot decide if it should respond
       this.emit('timelineNote', body.body);
+    }
+    // Log other channel message types for debugging
+    else {
+      logger.debug('Other channel message type:', body.type);
     }
   }
 
@@ -109,22 +131,33 @@ class WebSocketManager {
   }
 
   handleNotification(notification) {
-    logger.info('Received notification:', notification.type);
+    logger.info('🔔 Received notification:', notification.type);
+    logger.info('📋 Full notification structure:', JSON.stringify(notification, null, 2));
 
     // Handle specific notification types
     switch (notification.type) {
       case 'mention':
+        logger.info('📌 Processing mention notification...');
+        logger.info('📌 Mention notification data keys:', Object.keys(notification));
+        if (notification.note) {
+          logger.info('📌 Found note in notification.note');
+        }
+        if (notification.body) {
+          logger.info('📌 Found body in notification, keys:', Object.keys(notification.body));
+        }
         this.emit('mention', notification);
         break;
       case 'reply':
+        logger.info('💬 Processing reply notification...');
         this.emit('reply', notification);
         break;
       case 'groupInvited':
+        logger.info('👥 Processing group invite notification...');
         this.emit('groupInvite', notification);
         break;
       default:
         // Only emit general notification for unhandled types
-        logger.debug('Unhandled notification type:', notification.type);
+        logger.debug('❓ Unhandled notification type:', notification.type);
         this.emit('notification', notification);
     }
   }
@@ -154,6 +187,7 @@ class WebSocketManager {
   }
 
   connectToNotifications() {
+    // Try connecting to both notification channels to ensure we catch mentions
     this.send({
       type: 'connect',
       body: {
@@ -161,7 +195,17 @@ class WebSocketManager {
         id: uuidv4()
       }
     });
-    logger.debug('Connected to main notifications');
+    logger.debug('Connected to main notifications channel');
+    
+    // Also connect to a notifications-specific channel
+    this.send({
+      type: 'connect',
+      body: {
+        channel: 'notifications',
+        id: uuidv4()
+      }
+    });
+    logger.debug('Connected to notifications channel');
   }
 
   connectToMentions() {

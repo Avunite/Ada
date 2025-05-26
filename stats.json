@@ -1,6 +1,6 @@
 {
   "messagesProcessed": 14,
-  "responsesGenerated": 46,
+  "responsesGenerated": 52,
   "mentionsReceived": 0,
   "directMessages": 14,
   "groupsJoined": 0,
@@ -45,7 +45,14 @@
       15,
       {
         "messages": 0,
-        "responses": 17
+        "responses": 19
+      }
+    ],
+    [
+      16,
+      {
+        "messages": 0,
+        "responses": 4
       }
     ]
   ]

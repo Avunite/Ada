@@ -10,7 +10,7 @@ import databaseManager from './database-manager.js';
 class MessageHandler {
   constructor() {
     this.botUserId = null;
-    this.botUsername = config.botUsername.toLowerCase();
+    this.botUsername = config.botUsername; // Keep original case
     this.conversationContext = new Map(); // Store conversation context
     this.processedMessageIds = new Set(); // Track processed DM message IDs
     
@@ -31,6 +31,14 @@ class MessageHandler {
       const myInfo = await barkleClient.getMyInfo();
       this.botUserId = myInfo.id;
       logger.info(`Bot initialized with ID: ${this.botUserId}`);
+      
+      // Update notification settings to ensure mentions are not muted
+      try {
+        await barkleClient.updateNotificationSettings();
+        logger.info('✅ Notification settings updated successfully');
+      } catch (error) {
+        logger.warn('⚠️ Failed to update notification settings:', error.message);
+      }
       
       // Note: DM polling disabled - using WebSocket for real-time DMs
       // logger.info('🔄 Starting DM polling...');
@@ -60,21 +68,46 @@ class MessageHandler {
   }
 
   async handleMention(notification) {
-    logger.info('Handling mention notification:', notification);
+    logger.info('🔔 Handling mention notification:', JSON.stringify(notification, null, 2));
     
     if (notification.note) {
+      logger.info('✅ Found note in mention notification, processing...');
       await this.processMessage(notification.note, false, true);
+    } else {
+      logger.warn('❌ No note found in mention notification. Available keys:', Object.keys(notification));
+      
+      // Try alternative structures that might contain the note data
+      if (notification.body?.note) {
+        logger.info('✅ Found note in notification.body.note, processing...');
+        await this.processMessage(notification.body.note, false, true);
+      } else if (notification.content) {
+        logger.info('✅ Found content in notification.content, processing...');
+        await this.processMessage(notification.content, false, true);
+      } else {
+        logger.error('❌ Could not find note data in mention notification structure');
+      }
     }
   }
 
   async handleReply(notification) {
-    logger.info('Handling reply notification:', notification);
+    logger.info('🔔 Handling reply notification:', JSON.stringify(notification, null, 2));
     
     if (notification.note) {
-      // Check if the reply mentions us or is replying to our message
-      const isMention = this.isMentioned(notification.note);
-      if (isMention) {
-        await this.processMessage(notification.note, false, true);
+      logger.info('✅ Found note in reply notification, processing as mention...');
+      // All replies to our messages should be processed as mentions
+      await this.processMessage(notification.note, false, true);
+    } else {
+      logger.warn('❌ No note found in reply notification. Available keys:', Object.keys(notification));
+      
+      // Try alternative structures that might contain the note data
+      if (notification.body?.note) {
+        logger.info('✅ Found note in notification.body.note, processing...');
+        await this.processMessage(notification.body.note, false, true);
+      } else if (notification.content) {
+        logger.info('✅ Found content in notification.content, processing...');
+        await this.processMessage(notification.content, false, true);
+      } else {
+        logger.error('❌ Could not find note data in reply notification structure');
       }
     }
   }
@@ -506,14 +539,14 @@ I'm powered by AI and here to assist! 🤖`;
   isMentioned(note) {
     if (!note.text) return false;
     
-    const text = note.text.toLowerCase();
     const mentions = note.mentions || [];
+    const text = note.text.toLowerCase();
     
-    // Check if we're in the mentions array
+    // Check if we're in the mentions array (primary method)
     const mentionedById = mentions.some(mention => mention.id === this.botUserId);
     
-    // Check if our username is mentioned in the text
-    const mentionedByText = text.includes(`@${this.botUsername}`);
+    // Also check for case-insensitive text mentions as backup
+    const mentionedByText = text.includes(`@${this.botUsername.toLowerCase()}`);
     
     return mentionedById || mentionedByText;
   }
@@ -521,10 +554,11 @@ I'm powered by AI and here to assist! 🤖`;
   removeMentionFromText(text) {
     if (!text) return '';
     
-    // Remove @username mentions
+    // Remove @username mentions (case-insensitive) and clean up extra spaces
     return text
       .replace(new RegExp(`@${this.botUsername}\\b`, 'gi'), '')
       .replace(/@\w+/g, '') // Remove other mentions for cleaner context
+      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
       .trim();
   }
 
