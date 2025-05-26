@@ -77,7 +77,7 @@ export default class SearchBarksTool extends BaseTool {
         createdAt: note.createdAt,
         repliesCount: note.repliesCount || 0,
         reactionsCount: note.reactions ? Object.values(note.reactions).reduce((a, b) => a + b, 0) : 0,
-        url: note.url || `https://barkle.chat/notes/${note.id}`
+        url: note.url || `https://barkle.chat/barks/${note.id}`
       }));
 
       this.info(`Found ${formattedResults.length} results for query: "${query}"`);

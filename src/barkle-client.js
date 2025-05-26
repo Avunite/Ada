@@ -295,6 +295,29 @@ class BarkleClient {
     }
   }
 
+  async getMessagingHistory(limit = 20) {
+    try {
+      const response = await this.client.post('/messaging/history', { limit });
+      return response.data;
+    } catch (error) {
+      logger.error('Failed to get messaging history:', error.message);
+      throw error;
+    }
+  }
+
+  async getMessagesForUser(userId, limit = 1) {
+    try {
+      const response = await this.client.post('/messaging/messages', {
+        userId: userId,
+        limit: limit
+      });
+      return response.data;
+    } catch (error) {
+      logger.error('Failed to get messages for user:', error.message);
+      throw error;
+    }
+  }
+
   async updateNotificationSettings() {
     try {
       // Unmute important notifications (keep follow requests and app notifications muted)
