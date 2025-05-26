@@ -123,7 +123,7 @@ class MessageHandler {
       this.addToConversationContext(note.id, {
         role: 'user',
         content: messageText,
-        user: note.user?.username || 'unknown'
+        name: note.user?.username || 'unknown'
       });
 
       // Enhanced system prompt with user context
@@ -263,7 +263,7 @@ I'm powered by AI and here to assist! 🤖`;
       return thread.map(message => ({
         role: message.user?.id === this.botUserId ? 'assistant' : 'user',
         content: message.text || '',
-        user: message.user?.username || 'unknown'
+        name: message.user?.username || 'unknown'
       }));
     } catch (error) {
       logger.error('Failed to get conversation context:', error.message);
