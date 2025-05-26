@@ -120,6 +120,26 @@ class AdaBot {
       }
     });
 
+    // Handle direct messages via WebSocket
+    websocketManager.on('directMessage', async (message) => {
+      try {
+        logger.info('📨 Received direct message via WebSocket:', message.userId);
+        await messageHandler.handleDirectMessage(message);
+      } catch (error) {
+        logger.error('Error handling WebSocket direct message:', error.message);
+      }
+    });
+
+    // Handle messaging channel messages
+    websocketManager.on('messagingMessage', async (message) => {
+      try {
+        logger.info('💬 Received messaging message via WebSocket:', message.userId);
+        await messageHandler.handleDirectMessage(message);
+      } catch (error) {
+        logger.error('Error handling WebSocket messaging message:', error.message);
+      }
+    });
+
     logger.info('Event handlers set up successfully');
   }
 

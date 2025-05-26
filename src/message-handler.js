@@ -20,10 +20,10 @@ class MessageHandler {
       this.cleanupConversationContext();
     }, 5 * 60 * 1000); // Every 5 minutes
 
-    // Set up DM polling (every 10 seconds)
-    setInterval(() => {
-      this.pollForDirectMessages();
-    }, 10 * 1000);
+    // Note: DM polling disabled - using WebSocket for real-time DMs
+    // setInterval(() => {
+    //   this.pollForDirectMessages();
+    // }, 10 * 1000);
   }
 
   async initialize() {
@@ -32,9 +32,9 @@ class MessageHandler {
       this.botUserId = myInfo.id;
       logger.info(`Bot initialized with ID: ${this.botUserId}`);
       
-      // Start DM polling immediately after initialization
-      logger.info('🔄 Starting DM polling...');
-      setTimeout(() => this.pollForDirectMessages(), 2000); // Start after 2 seconds
+      // Note: DM polling disabled - using WebSocket for real-time DMs
+      // logger.info('🔄 Starting DM polling...');
+      // setTimeout(() => this.pollForDirectMessages(), 2000); // Start after 2 seconds
     } catch (error) {
       logger.error('Failed to initialize bot info:', error.message);
     }
@@ -94,6 +94,51 @@ class MessageHandler {
       }
     } catch (error) {
       logger.error('Failed to handle group invitation:', error.message);
+    }
+  }
+
+  async handleDirectMessage(message) {
+    logger.info('📨 Handling direct message from WebSocket:', message);
+
+    // Skip our own messages
+    if (message.userId === this.botUserId) {
+      logger.debug('Skipping own message');
+      return;
+    }
+
+    // Check if already processed
+    if (this.processedMessageIds.has(message.id)) {
+      logger.debug(`Message ${message.id} already processed, skipping`);
+      return;
+    }
+
+    // Mark as processed
+    this.processedMessageIds.add(message.id);
+
+    // Clean up old processed IDs (keep last 1000)
+    if (this.processedMessageIds.size > 1000) {
+      const idsArray = Array.from(this.processedMessageIds);
+      this.processedMessageIds = new Set(idsArray.slice(-500));
+    }
+
+    try {
+      // Convert message to note format for processing
+      const dmNote = {
+        id: message.id,
+        text: message.text,
+        userId: message.userId,
+        user: message.user || { id: message.userId },
+        createdAt: message.createdAt || new Date().toISOString(),
+        channelId: null // DMs don't have channel IDs
+      };
+
+      logger.info(`📥 Processing WebSocket DM from ${message.user?.username || message.userId}`);
+      
+      // Process as direct message
+      await this.processMessage(dmNote, true, false);
+      
+    } catch (error) {
+      logger.error('Error processing WebSocket direct message:', error.message);
     }
   }
 

@@ -38,6 +38,7 @@ class WebSocketManager {
       this.connectToGlobalTimeline();
       this.connectToNotifications();
       this.connectToMentions();
+      this.connectToMessaging();
     });
 
     this.ws.on('message', (data) => {
@@ -89,6 +90,14 @@ class WebSocketManager {
     // This handles timeline messages
     if (body.type === 'note') {
       this.emit('note', body.body);
+    }
+    // Handle messaging channel messages
+    else if (body.type === 'messagingMessage') {
+      this.emit('messagingMessage', body.body);
+    }
+    // Handle direct messages
+    else if (body.type === 'message') {
+      this.emit('directMessage', body.body);
     }
   }
 
@@ -159,6 +168,17 @@ class WebSocketManager {
       }
     });
     logger.debug('Connected to mentions channel');
+  }
+
+  connectToMessaging() {
+    this.send({
+      type: 'connect',
+      body: {
+        channel: 'messaging',
+        id: uuidv4()
+      }
+    });
+    logger.debug('Connected to messaging channel');
   }
 
   send(data) {
