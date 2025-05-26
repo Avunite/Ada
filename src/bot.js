@@ -52,8 +52,26 @@ class AdaBot {
   setupEventHandlers() {
     logger.info('Setting up event handlers...');
 
-    // Note: Removed timeline note handler to prevent responding to all posts
+    // Note: Removed general timeline note handler to prevent responding to all posts
     // Bot now only responds to mentions (via notifications) and direct messages
+
+    // Handle timeline notes that might contain mentions (fallback)
+    websocketManager.on('timelineNote', async (note) => {
+      try {
+        logger.debug('Processing timeline note for mentions only');
+        // Only process if it's a mention - this is a fallback in case mentions
+        // don't come through notifications properly
+        const isMention = messageHandler.isMentioned(note);
+        const isOwnMessage = note.userId === messageHandler.botUserId;
+        
+        if (isMention && !isOwnMessage) {
+          logger.info('Found mention in timeline note, processing...');
+          await messageHandler.processMessage(note, false, true);
+        }
+      } catch (error) {
+        logger.error('Error handling timeline note mention:', error.message);
+      }
+    });
 
     // Handle mentions
     websocketManager.on('mention', async (notification) => {

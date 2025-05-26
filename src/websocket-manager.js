@@ -33,8 +33,9 @@ class WebSocketManager {
       this.isConnected = true;
       this.reconnectAttempts = 0;
       
-      // Connect to required channels - ONLY notifications and messaging
-      // Timeline connections removed to prevent responding to all posts
+      // Connect to required channels - Including home timeline for mentions to work
+      // but we'll filter mentions in the handler
+      this.connectToMainTimeline();
       this.connectToNotifications();
       this.connectToMentions();
       this.connectToMessaging();
@@ -62,10 +63,8 @@ class WebSocketManager {
   }
 
   handleMessage(message) {
-    // Only log important message types to reduce noise
-    if (message.type === 'notification' || message.type === 'noteUpdated') {
-      logger.debug('Received WebSocket message:', message.type);
-    }
+    // Log all message types to debug mention issues
+    logger.debug('Received WebSocket message:', message.type, message.body?.type || 'no body type');
 
     // Handle different message types
     switch (message.type) {
@@ -86,6 +85,8 @@ class WebSocketManager {
   }
 
   handleChannelMessage(body) {
+    logger.debug('Channel message received:', body.type, body.id || 'no id');
+    
     // Handle messaging channel messages
     if (body.type === 'messagingMessage') {
       this.emit('messagingMessage', body.body);
@@ -94,9 +95,12 @@ class WebSocketManager {
     else if (body.type === 'message') {
       this.emit('directMessage', body.body);
     }
-    // Note: Removed timeline note handling to prevent responding to all posts
+    // Check if mentions are coming through timeline notes
     else if (body.type === 'note') {
-      logger.debug('Ignoring timeline note - bot only responds to mentions and DMs');
+      logger.debug('Timeline note received - checking if it mentions the bot');
+      // We might need to handle mentions that come through timeline
+      // Let's emit them and let the bot decide if it should respond
+      this.emit('timelineNote', body.body);
     }
   }
 
