@@ -58,6 +58,25 @@ class DatabaseManager {
         logger.debug('Processed notifications table ready');
       }
     });
+
+    // Create user memories table for persistent per-user memory
+    this.db.run(`CREATE TABLE IF NOT EXISTS user_memories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT,
+      memory_type TEXT,
+      memory_key TEXT,
+      memory_value TEXT,
+      importance INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, memory_key)
+    )`, (err) => {
+      if (err) {
+        logger.error('Error creating user_memories table:', err.message);
+      } else {
+        logger.debug('User memories table ready');
+      }
+    });
   }
 
   async fetchMessagesFromDB(userId) {
@@ -223,6 +242,183 @@ class DatabaseManager {
         } else {
           logger.info(`Cleaned up ${this.changes} old notification records`);
           resolve(this.changes);
+        }
+      });
+    });
+  }
+
+  // Memory Management Methods
+
+  /**
+   * Store a memory for a user
+   * @param {string} userId - The user ID
+   * @param {string} memoryKey - A unique key for this memory
+   * @param {string} memoryValue - The memory content
+   * @param {string} memoryType - Type of memory (preference, fact, conversation, etc.)
+   * @param {number} importance - Importance level (1-10, higher is more important)
+   */
+  async storeMemory(userId, memoryKey, memoryValue, memoryType = 'general', importance = 1) {
+    return new Promise((resolve, reject) => {
+      this.db.run(`INSERT OR REPLACE INTO user_memories 
+        (user_id, memory_key, memory_value, memory_type, importance, updated_at) 
+        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`, 
+        [userId, memoryKey, memoryValue, memoryType, importance], (err) => {
+        if (err) {
+          logger.error('Error storing memory:', err.message);
+          reject(err);
+        } else {
+          logger.debug(`Stored memory for user ${userId}: ${memoryKey} = ${memoryValue}`);
+          resolve();
+        }
+      });
+    });
+  }
+
+  /**
+   * Retrieve a specific memory for a user
+   * @param {string} userId - The user ID
+   * @param {string} memoryKey - The memory key to retrieve
+   */
+  async getMemory(userId, memoryKey) {
+    return new Promise((resolve, reject) => {
+      this.db.get('SELECT * FROM user_memories WHERE user_id = ? AND memory_key = ?', 
+        [userId, memoryKey], (err, row) => {
+        if (err) {
+          logger.error('Error retrieving memory:', err.message);
+          reject(err);
+        } else {
+          resolve(row);
+        }
+      });
+    });
+  }
+
+  /**
+   * Get all memories for a user, ordered by importance and recency
+   * @param {string} userId - The user ID
+   * @param {number} limit - Maximum number of memories to return
+   */
+  async getUserMemories(userId, limit = 50) {
+    return new Promise((resolve, reject) => {
+      this.db.all(`SELECT * FROM user_memories 
+        WHERE user_id = ? 
+        ORDER BY importance DESC, updated_at DESC 
+        LIMIT ?`, 
+        [userId, limit], (err, rows) => {
+        if (err) {
+          logger.error('Error retrieving user memories:', err.message);
+          reject(err);
+        } else {
+          logger.debug(`Retrieved ${rows.length} memories for user ${userId}`);
+          resolve(rows);
+        }
+      });
+    });
+  }
+
+  /**
+   * Search memories for a user by content
+   * @param {string} userId - The user ID
+   * @param {string} searchTerm - Term to search for in memory values
+   * @param {number} limit - Maximum number of results
+   */
+  async searchMemories(userId, searchTerm, limit = 10) {
+    return new Promise((resolve, reject) => {
+      this.db.all(`SELECT * FROM user_memories 
+        WHERE user_id = ? AND memory_value LIKE ? 
+        ORDER BY importance DESC, updated_at DESC 
+        LIMIT ?`, 
+        [userId, `%${searchTerm}%`, limit], (err, rows) => {
+        if (err) {
+          logger.error('Error searching memories:', err.message);
+          reject(err);
+        } else {
+          logger.debug(`Found ${rows.length} memories for user ${userId} matching "${searchTerm}"`);
+          resolve(rows);
+        }
+      });
+    });
+  }
+
+  /**
+   * Delete a specific memory
+   * @param {string} userId - The user ID
+   * @param {string} memoryKey - The memory key to delete
+   */
+  async deleteMemory(userId, memoryKey) {
+    return new Promise((resolve, reject) => {
+      this.db.run('DELETE FROM user_memories WHERE user_id = ? AND memory_key = ?', 
+        [userId, memoryKey], function(err) {
+        if (err) {
+          logger.error('Error deleting memory:', err.message);
+          reject(err);
+        } else {
+          logger.debug(`Deleted memory for user ${userId}: ${memoryKey}`);
+          resolve(this.changes > 0);
+        }
+      });
+    });
+  }
+
+  /**
+   * Clear all memories for a user
+   * @param {string} userId - The user ID
+   */
+  async clearUserMemories(userId) {
+    return new Promise((resolve, reject) => {
+      this.db.run('DELETE FROM user_memories WHERE user_id = ?', userId, function(err) {
+        if (err) {
+          logger.error('Error clearing user memories:', err.message);
+          reject(err);
+        } else {
+          logger.info(`Cleared ${this.changes} memories for user ${userId}`);
+          resolve(this.changes);
+        }
+      });
+    });
+  }
+
+  /**
+   * Update memory importance
+   * @param {string} userId - The user ID
+   * @param {string} memoryKey - The memory key
+   * @param {number} importance - New importance level
+   */
+  async updateMemoryImportance(userId, memoryKey, importance) {
+    return new Promise((resolve, reject) => {
+      this.db.run(`UPDATE user_memories 
+        SET importance = ?, updated_at = CURRENT_TIMESTAMP 
+        WHERE user_id = ? AND memory_key = ?`, 
+        [importance, userId, memoryKey], function(err) {
+        if (err) {
+          logger.error('Error updating memory importance:', err.message);
+          reject(err);
+        } else {
+          logger.debug(`Updated memory importance for user ${userId}: ${memoryKey} = ${importance}`);
+          resolve(this.changes > 0);
+        }
+      });
+    });
+  }
+
+  /**
+   * Get memory statistics for a user
+   * @param {string} userId - The user ID
+   */
+  async getMemoryStats(userId) {
+    return new Promise((resolve, reject) => {
+      this.db.get(`SELECT 
+        COUNT(*) as total_memories,
+        COUNT(DISTINCT memory_type) as memory_types,
+        AVG(importance) as avg_importance,
+        MAX(updated_at) as last_updated
+        FROM user_memories WHERE user_id = ?`, 
+        [userId], (err, row) => {
+        if (err) {
+          logger.error('Error getting memory stats:', err.message);
+          reject(err);
+        } else {
+          resolve(row);
         }
       });
     });

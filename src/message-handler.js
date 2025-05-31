@@ -6,6 +6,7 @@ import pluginManager from './plugin-manager.js';
 import toolManager from './tool-manager.js';
 import userContextManager from './user-context-manager.js';
 import databaseManager from './database-manager.js';
+import memoryManager from './memory-manager.js';
 
 class MessageHandler {
   constructor() {
@@ -19,6 +20,11 @@ class MessageHandler {
       userContextManager.cleanupCache();
       this.cleanupConversationContext();
     }, 5 * 60 * 1000); // Every 5 minutes
+
+    // Set up periodic memory cleanup (daily)
+    setInterval(() => {
+      this.cleanupUserMemories();
+    }, 24 * 60 * 60 * 1000); // Every 24 hours
 
     // Note: DM polling disabled - using WebSocket for real-time DMs
     // setInterval(() => {
@@ -242,6 +248,15 @@ class MessageHandler {
       const userContext = await userContextManager.getUserContext(note.userId);
       logger.info(`👤 User context loaded for ${userContext.username}`);
 
+      // Analyze and store memories from user message
+      logger.debug('🧠 Analyzing message for memories...');
+      await memoryManager.analyzeAndStoreMemories(note.userId, messageText, { userContext });
+      
+      // Get relevant memories for context
+      const relevantMemories = await memoryManager.getRelevantMemories(note.userId, messageText, 8);
+      const memoryContext = memoryManager.formatMemoriesForContext(relevantMemories);
+      logger.debug(`🧠 Retrieved ${relevantMemories.length} relevant memories for context`);
+
       // Get conversation history from database
       logger.debug('📚 Fetching conversation history from database...');
       const conversationHistory = await databaseManager.getConversationHistory(note.userId);
@@ -253,11 +268,11 @@ class MessageHandler {
         content: messageText
       }]);
 
-      // Enhanced system prompt with user context
+      // Enhanced system prompt with user context and memories
       const enhancedSystemPrompt = `${config.systemPrompt}
 
 User Context:
-${userContext.context}`;
+${userContext.context}${memoryContext}`;
 
       // Get updated conversation history (including the new message)
       const updatedHistory = await databaseManager.getConversationHistory(note.userId);
@@ -378,6 +393,99 @@ ${userContext.context}`;
       }
     }
     
+    // Handle memory commands
+    if (/^!memory|!mem$/i.test(lowerText)) {
+      try {
+        const memories = await memoryManager.getRelevantMemories(note.userId, '', 5);
+        const stats = await memoryManager.getMemoryStatistics(note.userId);
+        
+        let response = `🧠 **Memory Status**\n`;
+        response += `Total memories: ${stats?.total_memories || 0}\n`;
+        response += `Memory types: ${stats?.memory_types || 0}\n\n`;
+        
+        if (memories.length > 0) {
+          response += `**Recent/Important memories:**\n`;
+          memories.slice(0, 3).forEach((memory, index) => {
+            const importance = memory.importance > 7 ? '⭐ ' : '';
+            response += `${index + 1}. ${importance}${memory.memory_value}\n`;
+          });
+        } else {
+          response += `No memories stored yet. I'll remember things as we chat!`;
+        }
+        
+        const isDM = this.isDirectMessage(note);
+        if (isDM) {
+          await barkleClient.sendDirectMessage(response, note.userId);
+        } else {
+          await barkleClient.sendMessage(response, {
+            replyTo: note.id,
+            channelId: note.channelId
+          });
+        }
+        return true;
+      } catch (error) {
+        logger.error('Failed to get memory status:', error.message);
+        return false;
+      }
+    }
+
+    // Handle memory clearing commands
+    if (/^!clearmemory|!forgetme$/i.test(lowerText)) {
+      try {
+        const cleared = await databaseManager.clearUserMemories(note.userId);
+        
+        const response = cleared > 0 
+          ? `🧠 Cleared ${cleared} memories. Starting fresh! 🔄`
+          : `🧠 No memories to clear.`;
+        
+        const isDM = this.isDirectMessage(note);
+        if (isDM) {
+          await barkleClient.sendDirectMessage(response, note.userId);
+        } else {
+          await barkleClient.sendMessage(response, {
+            replyTo: note.id,
+            channelId: note.channelId
+          });
+        }
+        return true;
+      } catch (error) {
+        logger.error('Failed to clear memories:', error.message);
+        return false;
+      }
+    }
+
+    // Handle remember command
+    if (lowerText.startsWith('!remember ')) {
+      try {
+        const memoryText = text.substring(10).trim(); // Remove "!remember "
+        if (memoryText) {
+          await memoryManager.storeSpecificMemory(
+            note.userId, 
+            `manual_${Date.now()}`, 
+            memoryText, 
+            'important', 
+            8
+          );
+          
+          const response = `🧠 I'll remember that: "${memoryText}"`;
+          
+          const isDM = this.isDirectMessage(note);
+          if (isDM) {
+            await barkleClient.sendDirectMessage(response, note.userId);
+          } else {
+            await barkleClient.sendMessage(response, {
+              replyTo: note.id,
+              channelId: note.channelId
+            });
+          }
+          return true;
+        }
+      } catch (error) {
+        logger.error('Failed to store manual memory:', error.message);
+        return false;
+      }
+    }
+
     // Handle leave group command
     if (lowerText.includes('leave') && lowerText.includes('group')) {
       if (note.channelId) {
@@ -410,8 +518,16 @@ ${userContext.context}`;
 • I can see conversation context when replying to threads
 • Invite me to groups and I'll join automatically
 • Ask me to "leave group" if you want me to leave
+
+**Commands:**
 • Type "help" for this message
 • Type "!cc" or "!clearcontext" to clear our conversation history
+• Type "!memory" or "!mem" to see what I remember about you
+• Type "!clearmemory" or "!forgetme" to clear all memories
+• Type "!remember [text]" to manually store something important
+
+**Memory Feature:**
+I automatically remember important things you tell me like preferences, facts about yourself, interests, and more. This helps me provide more personalized responses over time!
 
 I'm powered by AI and here to assist! 🤖`;
 
@@ -459,6 +575,29 @@ I'm powered by AI and here to assist! 🤖`;
 
     if (cleanedCount > 0) {
       logger.debug(`Cleaned up ${cleanedCount} old conversation context entries`);
+    }
+  }
+
+  async cleanupUserMemories() {
+    try {
+      logger.info('🧠 Starting periodic memory cleanup...');
+      
+      // Get all users who have memories
+      const allMemories = await databaseManager.db.all(
+        'SELECT DISTINCT user_id FROM user_memories'
+      );
+      
+      let totalCleaned = 0;
+      for (const { user_id } of allMemories) {
+        const cleaned = await memoryManager.cleanupMemories(user_id, 150); // Keep 150 memories per user
+        totalCleaned += cleaned;
+      }
+      
+      if (totalCleaned > 0) {
+        logger.info(`🧠 Memory cleanup complete: removed ${totalCleaned} old memories`);
+      }
+    } catch (error) {
+      logger.error('Error during memory cleanup:', error.message);
     }
   }
 
